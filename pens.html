@@ -1,0 +1,254 @@
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Raleway:ital,wght@0,100..900;1,100..900&display=swap');
+    * { padding: 0; margin: 0; font-family: "Raleway", serif; }
+    #gamePage, #playForm, .loader { display: none; }
+    .grid { display: grid; grid-template-columns: repeat(3, 100px); grid-gap: 10px; justify-content: center; margin: 20px auto; }
+    .cell { width: 100px; height: 100px; display: flex; align-items: center; justify-content: center; border: 2px solid #333; cursor: pointer; font-size: 20px; font-weight: bold; background-color: #f0f0f0; user-select: none; }
+    .cell.bomb { background-color: #ff6666; }
+    .cell.safe { background-color: #66ff66; }
+    .header { text-align: center; border-bottom: 1px solid #878787; padding: 10px }
+    #joinPage , #playForm { text-align: center; flex-direction: column; align-items: center; height: 80vh; justify-content: center; }
+    #joinPage h2 { font-weight: 400; }
+    #joinPage button , #playForm button , #gamePage button { text-align: center; padding: 8px; border: none; background: #000; color: #fff; margin: 10px 0px 0px 0px; width: 150px; }
+    #betAmount { padding: 7px; width: 70%; margin: 10px; outline: none; }
+    #playForm .balance { gap: 5px; display: flex; font-size: 20px; }
+    #gamePage { flex-direction: column; align-items: center; display: flex; justify-content: center; height: 80vh; }
+    .lose{ color: #ff0000; font-weight: 600; }
+    .win { color: #008000; font-weight: 600; }
+    #joinPage img { border-radius: 14px; }
+    .pen-options { display: flex; font-size: 34px; }
+    .pen { background: #9f9f9f; padding: 6px; margin: 6px; display: flex; border-radius: 8px; width: 50px; align-items: center; justify-content: center; height: 50px;}
+    #playForm p { display: flex; font-size: 20px; gap: 2px; }
+</style>
+<div class="header">
+    <img src="https://i.ibb.co/yQSDRbp/GAMERBORD.png">
+</div>
+<div class="container">
+    <div id="joinPage">
+        <h2>Pen Selection</h2>
+        <img src="https://i.ibb.co/0K3NPL5/pens.png">
+        <button onclick="showPlayForm()">Join Game</button>
+    </div>
+
+    <div id="playForm">
+        <div class="balance">
+            <strong>Balance:</strong><br> 
+            <span id="userDetails"></span>
+        </div>
+        <input type="number" id="betAmount" placeholder="Enter bet amount">
+        <p>Win Reward: 1.98x your bet!</p>
+        <button onclick="showGame()">Continue</button>
+        <div class="loader" id="loader"></div>
+    </div>
+
+    <div id="gamePage">
+        <h2>Select a Pen</h2>
+        <div class="balance">Current Bet: ₹<span id="currentBet">0</span></div>
+        <div class="pen-options">
+            <div class="pen black" onclick="selectPen('black')">✒️</div>
+            <div class="pen blue" onclick="selectPen('blue')">🖋️</div>
+            <div class="pen red" onclick="selectPen('red')">📍</div>
+        </div>
+        <p>Selected: <span id="selectedPen">None</span></p>
+        <button id="playButton" onclick="playGame()" disabled>Play</button>
+        <div class="result" id="result"></div>
+        <div id="winAmount"></div>
+        <a href="index.html"><button>Back Home</button></a>
+    </div>
+</div>
+
+<script>
+    const mobileNumber = localStorage.getItem('m_local');
+    const API_URL = 'https://script.google.com/macros/s/AKfycbzSQCkc5KF9h8KhwEa6EHoOxEQ9p06RXgUzQAHW9tNXnPftUfggSFPFW-ZMPnvAskam/exec';
+    let userDetails = 0;
+    let currentBetAmount = 0;
+    let selectedPenColor = '';
+
+    function showPlayForm() {
+        document.getElementById('joinPage').style.display = 'none';
+        document.getElementById('playForm').style.display = 'flex';
+        fetchUserDetails();
+    }
+
+    function fetchUserDetails() {
+        document.getElementById('loader').style.display = 'flex';
+        
+        fetch(`${API_URL}?action=getUserDetails&mobile=${mobileNumber}`)
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('loader').style.display = 'none';
+                if (data.details) {
+                    userDetails = parseFloat(data.details);
+                    document.getElementById('userDetails').textContent = `₹${userDetails.toFixed(2)}`;
+                } else {
+                    alert('User details not found!');
+                }
+            })
+            .catch(error => {
+                document.getElementById('loader').style.display = 'none';
+                alert('Error fetching user details!');
+            });
+    }
+
+    async function subtractBalance(amount) {
+        document.getElementById('loader').style.display = 'flex';
+        
+        try {
+            const response = await fetch(API_URL, {
+                method: 'POST',
+                body: JSON.stringify({
+                    action: 'subtractAmount',
+                    mobile: mobileNumber,
+                    amount: amount
+                })
+            });
+            
+            const data = await response.json();
+            document.getElementById('loader').style.display = 'none';
+            
+            if (data.error) {
+                alert(data.error);
+                return false;
+            }
+            
+            if (data.success) {
+                userDetails = data.newBalance;
+                document.getElementById('userDetails').textContent = `₹${userDetails.toFixed(2)}`;
+                return true;
+            }
+        } catch (error) {
+            document.getElementById('loader').style.display = 'none';
+            alert('Error updating balance!');
+            return false;
+        }
+    }
+
+    async function addWinningAmount(betAmount) {
+        document.getElementById('loader').style.display = 'flex';
+        
+        try {
+            const response = await fetch(API_URL, {
+                method: 'POST',
+                body: JSON.stringify({
+                    action: 'addWinningAmount',
+                    mobile: mobileNumber,
+                    amount: betAmount
+                })
+            });
+            
+            const data = await response.json();
+            document.getElementById('loader').style.display = 'none';
+            
+            if (data.error) {
+                alert(data.error);
+                return;
+            }
+            
+            if (data.success) {
+                userDetails = data.newBalance;
+                document.getElementById('userDetails').textContent = `₹${userDetails.toFixed(2)}`;
+                document.getElementById('winAmount').textContent = 
+                    `Congratulations! You won ₹${data.winAmount.toFixed(2)}!`;
+                document.getElementById('winAmount').className = 'win';
+            }
+        } catch (error) {
+            document.getElementById('loader').style.display = 'none';
+            alert('Error updating win amount!');
+        }
+    }
+
+    async function showGame() {
+        const betAmount = parseFloat(document.getElementById('betAmount').value);
+        
+        if (isNaN(betAmount) || betAmount <= 0) {
+            alert('Please enter a valid bet amount!');
+            return;
+        }
+        
+        if (betAmount > userDetails) {
+            alert('Insufficient balance!');
+            return;
+        }
+        
+        const success = await subtractBalance(betAmount);
+        if (!success) {
+            return;
+        }
+        
+        currentBetAmount = betAmount;
+        document.getElementById('currentBet').textContent = betAmount.toFixed(2);
+        document.getElementById('playForm').style.display = 'none';
+        document.getElementById('gamePage').style.display = 'flex';
+        resetGameState();
+    }
+
+    function selectPen(color) {
+        selectedPenColor = color;
+        document.getElementById('selectedPen').textContent = color.charAt(0).toUpperCase() + color.slice(1);
+        document.getElementById('playButton').disabled = false;
+        
+        document.querySelectorAll('.pen').forEach(pen => {
+            pen.classList.remove('selected');
+        });
+        document.querySelector(`.pen.${color}`).classList.add('selected');
+    }
+
+    async function playGame() {
+        if (!selectedPenColor) {
+            alert('Please select a pen first!');
+            return;
+        }
+
+        const pens = ['black', 'blue', 'red'];
+        const resultPen = pens[Math.floor(Math.random() * pens.length)];
+        const result = document.getElementById('result');
+        document.getElementById('playButton').disabled = true;
+
+        result.textContent = 'Rolling...';
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
+        if (resultPen === selectedPenColor) {
+            result.textContent = `It's ${resultPen}! You Won!`;
+            result.className = 'result win';
+            await addWinningAmount(currentBetAmount);
+        } else {
+            result.textContent = `It's ${resultPen}. You Lost!`;
+            result.className = 'result lose';
+            document.getElementById('winAmount').textContent = `You lost ₹${currentBetAmount.toFixed(2)}`;
+            document.getElementById('winAmount').className = 'lose';
+        }
+    }
+
+    function resetGameState() {
+        selectedPenColor = '';
+        document.getElementById('selectedPen').textContent = 'None';
+        document.getElementById('playButton').disabled = true;
+        document.getElementById('result').textContent = '';
+        document.getElementById('winAmount').textContent = '';
+        document.querySelectorAll('.pen').forEach(pen => {
+            pen.classList.remove('selected');
+        });
+    }
+
+    function resetGame() {
+        document.getElementById('gamePage').style.display = 'none';
+        document.getElementById('playForm').style.display = 'flex';
+        document.getElementById('betAmount').value = '';
+        resetGameState();
+        fetchUserDetails();
+    }
+
+    window.onload = function() {
+        if (!mobileNumber) {
+            alert('Please login first!');
+            return;
+        }
+        
+        document.getElementById('joinPage').style.display = 'flex';
+        document.getElementById('playForm').style.display = 'none';
+        document.getElementById('gamePage').style.display = 'none';
+    };
+</script>

@@ -1,0 +1,266 @@
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Raleway:ital,wght@0,100..900;1,100..900&display=swap');
+    * { padding: 0; margin: 0; font-family: "Raleway", serif; }
+    #gamePage, #playForm, .loader { display: none; }
+    .header { text-align: center; border-bottom: 1px solid #878787; padding: 10px }
+    #joinPage , #playForm { text-align: center; flex-direction: column; align-items: center; height: 80vh; justify-content: center; }
+    #joinPage h2 { font-weight: 400; }
+    #joinPage button , #playForm button , #gamePage button { text-align: center; padding: 8px; border: none; background: #000; color: #fff; margin: 10px 0px 0px 0px; width: 150px; }
+    #betAmount { padding: 7px; width: 70%; margin: 10px; outline: none; }
+    #playForm .balance { gap: 5px; display: flex; font-size: 20px; }
+    #gamePage { flex-direction: column; align-items: center; display: flex; justify-content: center; height: 80vh; }
+    .lose{ color: #ff0000; font-weight: 600; }
+    .win { color: #008000; font-weight: 600; }
+    #joinPage img { border-radius: 14px; }
+    #gamePage, #playForm , .loader { display: none; }
+    .cell { aspect-ratio: 1; background: #fff; border: 2px solid #333; font-size: 30px; display: flex; align-items: center; justify-content: center; cursor: pointer; width: 80px; height: 80px; }
+    .board { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 20px auto; max-width: 300px; }
+    .win { color: #4CAF50; }
+    .lose { color: #f44336; }
+    #playForm p { display: flex; font-size: 20px; gap: 2px; }
+</style>
+<div class="header">
+    <img src="https://i.ibb.co/yQSDRbp/GAMERBORD.png">
+</div>
+<div class="container">
+    <div id="joinPage">
+        <h2>Tic Tac Toe</h2>
+        <img src="https://i.ibb.co/X2rCzmg/tic-tac-toe.png">
+        <button onclick="showPlayForm()">Join Game</button>
+    </div>
+    <div id="playForm">
+        <p><strong>Balance:</strong><br> <span id="userDetails"></span></p>
+        <input type="number" id="betAmount" placeholder="Enter bet amount">
+        <p>Win Reward: 1.98x your bet!</p>
+        <button onclick="startGame()">Play Game</button>
+        <div class="loader" id="loader"></div>
+    </div>
+    <div id="gamePage">
+        <h2>Tic Tac Toe</h2>
+        <p>You: X | Opponent: O</p>
+        <div class="board" id="board"></div>
+        <div id="status"></div>
+        <div id="winAmount"></div>
+        <button onclick="resetGame()">Play Again</button>
+    </div>
+</div>
+<script>
+    const mobileNumber = localStorage.getItem('m_local');
+    const API_URL = 'https://script.google.com/macros/s/AKfycbzSQCkc5KF9h8KhwEa6EHoOxEQ9p06RXgUzQAHW9tNXnPftUfggSFPFW-ZMPnvAskam/exec';
+    let userDetails = 0;
+    let currentBetAmount = 0;
+    let board = Array(9).fill('');
+    let gameActive = false;
+    const winPatterns = [
+        [0, 1, 2], [3, 4, 5], [6, 7, 8],
+        [0, 3, 6], [1, 4, 7], [2, 5, 8],
+        [0, 4, 8], [2, 4, 6]
+    ];
+    function showPlayForm() {
+        document.getElementById('joinPage').style.display = 'none';
+        document.getElementById('playForm').style.display = 'flex';
+        fetchUserDetails();
+    }
+    async function fetchUserDetails() {
+        document.getElementById('loader').style.display = 'flex';
+        try {
+            const response = await fetch(`${API_URL}?action=getUserDetails&mobile=${mobileNumber}`);
+            const data = await response.json();
+            document.getElementById('loader').style.display = 'none';
+            if (data.details) {
+                userDetails = parseFloat(data.details);
+                document.getElementById('userDetails').textContent = `₹${userDetails.toFixed(2)}`;
+            } else {
+                alert('User details not found!');
+            }
+        } catch (error) {
+            document.getElementById('loader').style.display = 'none';
+            alert('Error fetching user details!');
+        }
+    }
+    async function subtractBalance(amount) {
+        document.getElementById('loader').style.display = 'flex';
+        try {
+            const response = await fetch(API_URL, {
+                method: 'POST',
+                body: JSON.stringify({
+                    action: 'subtractAmount',
+                    mobile: mobileNumber,
+                    amount: amount
+                })
+            });
+            const data = await response.json();
+            document.getElementById('loader').style.display = 'none';
+            if (data.error) {
+                alert(data.error);
+                return false;
+            }
+            if (data.success) {
+                userDetails = data.newBalance;
+                document.getElementById('userDetails').textContent = `₹${userDetails.toFixed(2)}`;
+                return true;
+            }
+        } catch (error) {
+            document.getElementById('loader').style.display = 'none';
+            alert('Error updating balance!');
+            return false;
+        }
+    }
+    async function addWinningAmount(betAmount) {
+        document.getElementById('loader').style.display = 'flex';
+        try {
+            const response = await fetch(API_URL, {
+                method: 'POST',
+                body: JSON.stringify({
+                    action: 'addWinningAmount',
+                    mobile: mobileNumber,
+                    amount: betAmount
+                })
+            });
+            const data = await response.json();
+            document.getElementById('loader').style.display = 'none';
+            if (data.success) {
+                userDetails = data.newBalance;
+                document.getElementById('userDetails').textContent = `₹${userDetails.toFixed(2)}`;
+                document.getElementById('winAmount').textContent = `Congratulations! You won ₹${data.winAmount.toFixed(2)}!`;
+                document.getElementById('winAmount').className = 'win';
+            }
+        } catch (error) {
+            document.getElementById('loader').style.display = 'none';
+            alert('Error updating win amount!');
+        }
+    }
+    async function startGame() {
+        const betAmount = parseFloat(document.getElementById('betAmount').value);
+        if (isNaN(betAmount) || betAmount <= 0) {
+            alert('Please enter a valid bet amount!');
+            return;
+        }
+        if (betAmount > userDetails) {
+            alert('Insufficient balance!');
+            return;
+        }
+        const success = await subtractBalance(betAmount);
+        if (!success) return;
+        currentBetAmount = betAmount;
+        document.getElementById('playForm').style.display = 'none';
+        document.getElementById('gamePage').style.display = 'flex';
+        initializeBoard();
+    }
+    function initializeBoard() {
+        board = Array(9).fill('');
+        gameActive = true;
+        const boardEl = document.getElementById('board');
+        boardEl.innerHTML = '';
+        for (let i = 0; i < 9; i++) {
+            const cell = document.createElement('div');
+            cell.className = 'cell';
+            cell.dataset.index = i;
+            cell.addEventListener('click', () => handleMove(i));
+            boardEl.appendChild(cell);
+        }
+        document.getElementById('status').textContent = '';
+        document.getElementById('winAmount').textContent = '';
+    }
+    async function handleMove(index) {
+        if (!gameActive || board[index] !== '') return;
+        board[index] = 'X';
+        document.querySelectorAll('.cell')[index].textContent = 'X';
+        if (checkWinner('X')) {
+            gameActive = false;
+            document.getElementById('status').textContent = 'You Win!';
+            document.getElementById('status').className = 'win';
+            await addWinningAmount(currentBetAmount);
+            return;
+        }
+        if (board.every(cell => cell !== '')) {
+            gameActive = false;
+            document.getElementById('status').textContent = 'Draw!';
+            await addWinningAmount(currentBetAmount / 2);
+            return;
+        }
+        setTimeout(async () => {
+            const aiMove = getBestMove();
+            board[aiMove] = 'O';
+            document.querySelectorAll('.cell')[aiMove].textContent = 'O';
+            if (checkWinner('O')) {
+                gameActive = false;
+                document.getElementById('status').textContent = 'Opponent Wins!';
+                document.getElementById('status').className = 'lose';
+                document.getElementById('winAmount').textContent = `You lost ₹${currentBetAmount.toFixed(2)}`;
+                document.getElementById('winAmount').className = 'lose';
+                return;
+            }
+            if (board.every(cell => cell !== '')) {
+                gameActive = false;
+                document.getElementById('status').textContent = 'Draw!';
+                await addWinningAmount(currentBetAmount / 2);
+            }
+        }, 500);
+    }
+    function checkWinner(player) {
+        return winPatterns.some(pattern => 
+            pattern.every(index => board[index] === player)
+        );
+    }
+    function getBestMove() {
+        let bestScore = -Infinity;
+        let bestMove = 0;
+        for (let i = 0; i < 9; i++) {
+            if (board[i] === '') {
+                board[i] = 'O';
+                let score = minimax(board, 0, false);
+                board[i] = '';
+                if (score > bestScore) {
+                    bestScore = score;
+                    bestMove = i;
+                }
+            }
+        }
+        return bestMove;
+    }
+    function minimax(board, depth, isMaximizing) {
+        if (checkWinner('O')) return 10 - depth;
+        if (checkWinner('X')) return depth - 10;
+        if (board.every(cell => cell !== '')) return 0;
+        if (isMaximizing) {
+            let bestScore = -Infinity;
+            for (let i = 0; i < 9; i++) {
+                if (board[i] === '') {
+                    board[i] = 'O';
+                    bestScore = Math.max(bestScore, minimax(board, depth + 1, false));
+                    board[i] = '';
+                }
+            }
+            return bestScore;
+        } else {
+            let bestScore = Infinity;
+            for (let i = 0; i < 9; i++) {
+                if (board[i] === '') {
+                    board[i] = 'X';
+                    bestScore = Math.min(bestScore, minimax(board, depth + 1, true));
+                    board[i] = '';
+                }
+            }
+            return bestScore;
+        }
+    }
+    function resetGame() {
+        document.getElementById('gamePage').style.display = 'none';
+        document.getElementById('playForm').style.display = 'flex';
+        document.getElementById('betAmount').value = '';
+        fetchUserDetails();
+    }
+    window.onload = function() {
+        if (!mobileNumber) {
+            alert('Please login first!');
+            return;
+        }
+        document.getElementById('joinPage').style.display = 'flex';
+        document.getElementById('playForm').style.display = 'none';
+        document.getElementById('gamePage').style.display = 'none';
+    };
+</script>

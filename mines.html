@@ -1,0 +1,262 @@
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Raleway:ital,wght@0,100..900;1,100..900&display=swap');
+    * { padding: 0; margin: 0; font-family: "Raleway", serif; }
+    #gamePage, #playForm, .loader { display: none; }
+    .grid { display: grid; grid-template-columns: repeat(3, 100px); grid-gap: 10px; justify-content: center; margin: 20px auto; }
+    .cell { width: 100px; height: 100px; display: flex; align-items: center; justify-content: center; border: 2px solid #333; cursor: pointer; font-size: 20px; font-weight: bold; background-color: #f0f0f0; user-select: none; }
+    .cell.bomb { background-color: #ff6666; }
+    .cell.safe { background-color: #66ff66; }
+    .header { text-align: center; border-bottom: 1px solid #878787; padding: 10px }
+    #joinPage , #playForm { text-align: center; flex-direction: column; align-items: center; height: 80vh; justify-content: center; }
+    #joinPage h2 { font-weight: 400; }
+    #joinPage button , #playForm button , #gamePage button { text-align: center; padding: 8px; border: none; background: #000; color: #fff; margin: 10px 0px 0px 0px; width: 150px; }
+    #betAmount { padding: 7px; width: 70%; margin: 10px; outline: none; }
+    #playForm p { gap: 5px; display: flex; font-size: 20px; }
+    #gamePage { flex-direction: column; align-items: center; display: flex; justify-content: center; height: 80vh; }
+    .lose-message { color: #ff0000; font-weight: 600; }
+    .win-message { color: #008000; font-weight: 600; }
+    #joinPage img { border-radius: 14px; }
+</style>
+<div class="header">
+    <img src="https://i.ibb.co/yQSDRbp/GAMERBORD.png">
+</div>
+<div id="joinPage">
+    <h2>Minesweeper</h2>
+    <img src="https://i.ibb.co/mDw2YCp/mines.png">
+    <button onclick="showPlayForm()">Join Game</button>
+</div>
+<div id="playForm">
+    <p><strong>Balance:</strong><br> <span id="userDetails"></span></p>
+    <input type="number" id="betAmount" placeholder="Enter bid amount">
+    <p>Win Reward: 1.98x your bid!</p>
+    <button onclick="startGame()">Play Game</button>
+    <div class="loader" id="loader"></div>
+</div>
+
+<div id="gamePage">
+    <div class="grid"></div>
+    <p id="status"></p>
+    <p id="winAmount"></p>
+    <a href="index.html"><button>Back Home</button></a>
+</div>
+
+<script>
+    const rows = 2;
+    const cols = 3;
+    const totalCells = rows * cols;
+    const bombCount = 3;
+    let bombs = [];
+    let revealed = 0;
+    let userDetails = 0;
+    let currentBetAmount = 0;
+
+    const mobileNumber = localStorage.getItem('m_local');
+    const API_URL = 'https://script.google.com/macros/s/AKfycbzSQCkc5KF9h8KhwEa6EHoOxEQ9p06RXgUzQAHW9tNXnPftUfggSFPFW-ZMPnvAskam/exec';
+
+    function showPlayForm() {
+        document.getElementById('joinPage').style.display = 'none';
+        document.getElementById('playForm').style.display = 'flex';
+        fetchUserDetails();
+    }
+
+    function fetchUserDetails() {
+        document.getElementById('loader').style.display = 'flex';
+
+        fetch(`${API_URL}?action=getUserDetails&mobile=${mobileNumber}`)
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('loader').style.display = 'none';
+                if (data.details) {
+                    userDetails = parseFloat(data.details);
+                    document.getElementById('userDetails').textContent = `₹${userDetails.toFixed(2)}`;
+                } else {
+                    alert('User details not found!');
+                }
+            })
+            .catch(error => {
+                document.getElementById('loader').style.display = 'none';
+                alert('Error fetching user details!');
+            });
+    }
+
+    async function subtractBalance(amount) {
+        document.getElementById('loader').style.display = 'flex';
+
+        try {
+            const response = await fetch(API_URL, {
+                method: 'POST',
+                body: JSON.stringify({
+                    action: 'subtractAmount',
+                    mobile: mobileNumber,
+                    amount: amount
+                })
+            });
+
+            const data = await response.json();
+            document.getElementById('loader').style.display = 'none';
+
+            if (data.error) {
+                alert(data.error);
+                return false;
+            }
+
+            if (data.success) {
+                userDetails = data.newBalance;
+                document.getElementById('userDetails').textContent = `₹${userDetails.toFixed(2)}`;
+                return true;
+            }
+        } catch (error) {
+            document.getElementById('loader').style.display = 'none';
+            alert('Error updating balance!');
+            return false;
+        }
+    }
+
+    async function addWinningAmount(betAmount) {
+        document.getElementById('loader').style.display = 'flex';
+
+        try {
+            const response = await fetch(API_URL, {
+                method: 'POST',
+                body: JSON.stringify({
+                    action: 'addWinningAmount',
+                    mobile: mobileNumber,
+                    amount: betAmount
+                })
+            });
+
+            const data = await response.json();
+            document.getElementById('loader').style.display = 'none';
+
+            if (data.error) {
+                alert(data.error);
+                return;
+            }
+
+            if (data.success) {
+                userDetails = data.newBalance;
+                document.getElementById('userDetails').textContent = `₹${userDetails.toFixed(2)}`;
+                document.getElementById('winAmount').textContent = 
+                    `Congratulations! You won ₹${data.winAmount.toFixed(2)}!`;
+                document.getElementById('winAmount').className = 'win-message';
+            }
+        } catch (error) {
+            document.getElementById('loader').style.display = 'none';
+            alert('Error updating win amount!');
+        }
+    }
+
+    async function startGame() {
+        const betAmount = parseFloat(document.getElementById('betAmount').value);
+
+        if (isNaN(betAmount) || betAmount <= 0) {
+            alert('Please enter a valid bet amount!');
+            return;
+        }
+
+        if (betAmount > userDetails) {
+            alert('Insufficient balance!');
+            return;
+        }
+
+        const success = await subtractBalance(betAmount);
+        if (!success) {
+            return;
+        }
+
+        currentBetAmount = betAmount;
+        document.getElementById('playForm').style.display = 'none';
+        document.getElementById('gamePage').style.display = 'flex';
+        document.getElementById('winAmount').textContent = '';
+        initGame();
+    }
+
+    function initGame() {
+        bombs = [];
+        revealed = 0;
+        const grid = document.querySelector('.grid');
+        const status = document.getElementById('status');
+
+        grid.innerHTML = '';
+        status.textContent = '';
+
+        while (bombs.length < bombCount) {
+            const rand = Math.floor(Math.random() * totalCells);
+            if (!bombs.includes(rand)) {
+                bombs.push(rand);
+            }
+        }
+
+        for (let i = 0; i < totalCells; i++) {
+            const cell = document.createElement('div');
+            cell.classList.add('cell', 'hidden');
+            cell.dataset.index = i;
+            cell.addEventListener('click', handleCellClick);
+            grid.appendChild(cell);
+        }
+    }
+
+    async function handleCellClick(event) {
+        const cell = event.target;
+        const index = parseInt(cell.dataset.index);
+
+        if (cell.classList.contains('revealed')) return;
+
+        if (bombs.includes(index)) {
+            cell.classList.add('bomb', 'revealed');
+            cell.textContent = '💣';
+            document.getElementById('status').textContent = 'Game Over!';
+            document.getElementById('winAmount').textContent = `You lost ₹${currentBetAmount.toFixed(2)}`;
+            document.getElementById('winAmount').className = 'lose-message';
+            revealAll();
+        } else {
+            cell.classList.add('safe', 'revealed');
+            cell.textContent = '✔';
+            revealed++;
+            if (revealed === totalCells - bombCount) {
+                document.getElementById('status').textContent = 'You Win!';
+                await addWinningAmount(currentBetAmount);
+                revealAll();
+            }
+        }
+    }
+
+    function revealAll() {
+        const cells = document.querySelectorAll('.cell');
+        cells.forEach((cell, index) => {
+            cell.classList.add('revealed');
+            cell.classList.remove('hidden');
+            if (bombs.includes(index)) {
+                cell.classList.add('bomb');
+                cell.textContent = '💣';
+            } else {
+                cell.classList.add('safe');
+                cell.textContent = '✔';
+            }
+        });
+    }
+
+    function resetGame() {
+        document.getElementById('gamePage').style.display = 'none';
+        document.getElementById('playForm').style.display = 'flex';
+        document.getElementById('betAmount').value = '';
+        document.getElementById('status').textContent = '';
+        document.getElementById('winAmount').textContent = '';
+        currentBetAmount = 0;
+        fetchUserDetails();
+    }
+
+    window.onload = function() {
+        if (!mobileNumber) {
+            alert('Please login first!');
+            return;
+        }
+
+        document.getElementById('joinPage').style.display = 'flex';
+        document.getElementById('playForm').style.display = 'none';
+        document.getElementById('gamePage').style.display = 'none';
+    };
+</script>

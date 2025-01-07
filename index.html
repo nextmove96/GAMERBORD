@@ -1,0 +1,342 @@
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.qrcode/1.0/jquery.qrcode.min.js"></script>
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Raleway:ital,wght@0,100..900;1,100..900&display=swap');
+    * { padding: 0; margin: 0; font-family: "Raleway", serif; }
+     #withdrawForm, #addForm, #addFormStep2, .upload-preview , .mob{ display: none; }
+     .header { text-align: center; border-bottom: 1px solid #878787; padding: 10px }
+     #userInfo { padding: 20px; display: flex; justify-content: space-between; align-items: center; }
+     .buttons { display: flex; flex-direction: column; align-items: start; }
+     p strong { font-size: 22px; font-weight: 500; }
+     #withdrawButton { margin: 0px 0px 10px 0px; }
+     #userDetails { font-size: 18px; }
+     #userInfo button { padding: 5px; display: flex; background: #009fff; color: #fff; align-items: center; justify-content: center; width: 100px; border: none; }
+     #withdrawForm , #addForm , #addFormStep2 { text-align: center; background: #474747; margin: 20px; padding: 10px; border-radius: 12px; color: #fff; }
+     #withdrawForm input , #addForm input { margin: 10px 0px 0px 0px; padding: 8px 0px 8px 15px; width: 90%; outline: none; border-radius: 25px; border: 1px solid #7f7f7f; background: #cfcfcf; }
+     #submitWithdraw , #nextStep , #submitAdd { padding: 8px; border: none; width: 90%; color: #fff; background: #000; border-radius: 125px; margin: 10px 0px 0px 0px; }
+     .back-button { border: none; color: red; font-size: 45px; border-radius: 125px; background: #474747; width: 54px; margin: -28px 0px 0px 245px; }
+     .error { color: #ff0000; margin: 10px 0px 0px 0px; }
+     canvas { margin: 10px; }
+     input[type="file"]::file-selector-button { border: 2px solid #6c5ce7; padding: 0.2em 0.4em; border-radius: 0.2em; background-color: #a29bfe; transition: 1s; } 
+     input[type="file"]::file-selector-button:hover { background-color: #81ecec; border: 2px solid #00cec9; }
+     .games { display: flex; align-items: center; justify-content: center; }
+     .gaming { padding: 10px; margin: 5px; background: linear-gradient(45deg, #6c5ce7, #00cec9); border-radius: 8px; }
+     .gaming a { text-decoration: none; text-align: center; font-size: 18px; color: #fff; }
+     a img { border-radius: 12px; }
+     a p { margin: 10px 0px 0px 0px; }
+     #imagePreview { width: 100px; margin: 10px; border-radius: 12px; }
+</style>
+<div class="header">
+    <img src="https://i.ibb.co/yQSDRbp/GAMERBORD.png">
+</div>
+<div id="mainContent">
+    <div id="userInfo">
+        <p class="mob"><strong>Mobile Number:</strong> <span id="userMobile"></span></p>
+        <p><strong>Balance:</strong><br> <span id="userDetails"></span></p>
+        <div class="buttons">
+        <button id="withdrawButton">Withdraw</button>
+        <button id="addButton" style="background: #ff6c00;">Add</button>
+    </div>
+    </div>
+</div>
+<div class="games">
+    <div class="gaming">
+        <a href="mines.html"><img src="https://i.ibb.co/mDw2YCp/mines.png"><p>Mines</p></a>
+    </div>
+    <div class="gaming">
+        <a href="pens.html"><img src="https://i.ibb.co/0K3NPL5/pens.png"><p>Pens</p></a>
+    </div>
+</div>
+<div class="games">
+    <div class="gaming">
+        <a href="numbers.html"><img src="https://i.ibb.co/7X54cJm/numbers.png"><p>Numbers</p></a>
+    </div>
+    <div class="gaming">
+        <a href="tic_tac_toe.html"><img src="https://i.ibb.co/X2rCzmg/tic-tac-toe.png"><p>Tic Tac Toe</p></a>
+    </div>
+</div>
+<div id="withdrawForm">
+    <button class="back-button" id="backWithdraw">&times;</button>
+    <div class="input-group">
+        <input type="number" id="withdrawAmount" min="1" required placeholder="Amount:">
+        <div id="amountError" class="error"></div>
+        <input type="text" id="upiId" required placeholder="UPI ID:">
+        <div id="upiError" class="error"></div>
+        <input type="text" id="description" placeholder="Description (Optional):">
+    </div>
+
+    <button id="submitWithdraw">Submit Withdrawal</button>
+</div>
+
+<div id="addForm">
+    <button class="back-button" id="backAdd">&times;</button>
+
+    <div class="input-group">
+        <input type="number" id="addAmount" min="1" required placeholder="Amount:">
+        <div id="addAmountError" class="error"></div>
+    </div>
+    <button id="nextStep">Next</button>
+</div>
+
+<div id="addFormStep2">
+    <button class="back-button" id="backAddStep2">&times;</button>
+
+    <div class="payment-details">
+        <p>Amount to Pay: <span class="amount-display" id="paymentAmount"></span></p>
+        <div class="upi-details">
+            <strong>UPI ID:</strong> createprincemahto-2@okaxis
+        </div>
+    </div>
+
+    <div id="qrcode"></div>
+
+    <div class="input-group">
+        <label for="uploadImage">Upload Payment Screenshot:</label>
+        <input type="file" id="uploadImage" accept="image/*" required>
+        <img id="imagePreview" class="upload-preview">
+        <div id="imageError" class="error"></div>
+    </div>
+
+    <button id="submitAdd">Submit Payment</button>
+</div>
+
+<script>
+    $(document).ready(function() {
+    var mobileNumber = localStorage.getItem('m_local');
+    if (!mobileNumber) {
+        alert('You are not logged in. Redirecting to home page.');
+        window.location.href = 'login.html';
+    }
+
+    $('#userMobile').text(mobileNumber);
+
+    let userDetails = null;
+    let addAmount = 0;
+
+    function fetchUserDetails() {
+        $.ajax({
+            url: "https://script.google.com/macros/s/AKfycbw6YzeqV8b5ACr5gkXPz4OL7Xh9MO9-TdVUBp6HQQ1ClU8CrsS6qgrhkXv_8svm9dUd/exec",
+            type: "GET",
+            data: {
+                action: "getUserDetails",
+                mobile: mobileNumber
+            },
+            success: function(response) {
+                if (response && response.details) {
+                    userDetails = parseFloat(response.details);
+                    $('#userDetails').text(`₹${userDetails.toFixed(2)}`);
+                } else {
+                    alert('User details not found!');
+                }
+            },
+            error: function(error) {
+                alert('Error fetching user details!');
+            }
+        });
+    }
+
+    fetchUserDetails();
+
+    $('#withdrawButton').click(function() {
+        $('#mainContent').hide();
+        $('#withdrawForm').fadeIn();
+        $('.games').hide();
+        clearWithdrawForm();
+    });
+
+    $('#addButton').click(function() {
+        $('#mainContent').hide();
+        $('#addForm').fadeIn();
+        $('.games').hide();
+        clearAddForm();
+    });
+
+    $('#backWithdraw').click(function() {
+        $('#withdrawForm').fadeOut();
+        $('#mainContent').show();
+        $('.games').show();
+        clearWithdrawForm();
+    });
+
+    $('#backAdd').click(function() {
+        $('#addForm').fadeOut();
+        $('#mainContent').show();
+        $('.games').show();
+        clearAddForm();
+    });
+
+    $('#backAddStep2').click(function() {
+        $('#addFormStep2').hide();
+        $('#addForm').fadeIn();
+    });
+
+    $('#nextStep').click(function() {
+        addAmount = parseFloat($('#addAmount').val());
+        
+        if (!addAmount || addAmount <= 0) {
+            $('#addAmountError').text('Please enter a valid amount');
+            return;
+        }
+
+        $('#addForm').hide();
+        $('#addFormStep2').fadeIn();
+        $('#paymentAmount').text('₹' + addAmount.toFixed(2));
+        
+        $('#qrcode').empty().qrcode({
+            text: "upi://pay?pa=createprincemahto-2@okaxis&pn=Next_Move&am=" + addAmount,
+            width: 200,
+            height: 200
+        });
+    });
+
+    $('#uploadImage').change(function() {
+        const file = this.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                $('#imagePreview').attr('src', e.target.result).show();
+            };
+            reader.readAsDataURL(file);
+        }
+    });
+
+    function clearWithdrawForm() {
+        $('#withdrawAmount').val('');
+        $('#upiId').val('');
+        $('#description').val('');
+        $('.error').text('');
+    }
+
+    function clearAddForm() {
+        $('#addAmount').val('');
+        $('#uploadImage').val('');
+        $('#imagePreview').hide();
+        $('#addAmountError').text('');
+        $('#imageError').text('');
+    }
+
+    function validateUPI(upiId) {
+        const upiRegex = /^[\w\.\-]+@[\w\-]+$/;
+        return upiRegex.test(upiId);
+    }
+
+    $('#submitWithdraw').click(function() {
+        let isValid = true;
+        const withdrawAmount = parseFloat($('#withdrawAmount').val());
+        const upiId = $('#upiId').val();
+        const description = $('#description').val();
+
+        if (!withdrawAmount || withdrawAmount <= 0) {
+            $('#amountError').text('Please enter a valid amount');
+            isValid = false;
+        } else if (withdrawAmount > userDetails) {
+            $('#amountError').text('Insufficient balance');
+            isValid = false;
+        } else {
+            $('#amountError').text('');
+        }
+
+        if (!upiId) {
+            $('#upiError').text('Please enter UPI ID');
+            isValid = false;
+        } else if (!validateUPI(upiId)) {
+            $('#upiError').text('Invalid UPI ID format');
+            isValid = false;
+        } else {
+            $('#upiError').text('');
+        }
+
+        if (!isValid) return;
+
+        $.ajax({
+            url: "https://script.google.com/macros/s/AKfycbw6YzeqV8b5ACr5gkXPz4OL7Xh9MO9-TdVUBp6HQQ1ClU8CrsS6qgrhkXv_8svm9dUd/exec",
+            type: "POST",
+            data: {
+                action: "processWithdraw",
+                mobile: mobileNumber,
+                amount: withdrawAmount,
+                upi: upiId,
+                description: description
+            },
+            success: function(response) {
+                if (response === "Success") {
+                    alert('Withdrawal processed successfully!');
+                    $('#withdrawForm').fadeOut();
+                    $('#mainContent').show();
+                    $('.games').show();
+                    userDetails -= withdrawAmount;
+                    $('#userDetails').text(`₹${userDetails.toFixed(2)}`);
+                    clearWithdrawForm();
+                } else {
+                    alert('Failed to process withdrawal.');
+                }
+            },
+            error: function(error) {
+                alert('Error during withdrawal request.');
+            }
+        });
+    });
+
+    $('#submitAdd').click(function() {
+        const imageFile = $('#uploadImage')[0].files[0];
+
+        if (!imageFile) {
+            $('#imageError').text('Please upload a payment screenshot');
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append("image", imageFile);
+
+        $.ajax({
+            url: "https://api.imgur.com/3/image",
+            type: "POST",
+            headers: {
+                Authorization: "Client-ID bd8f385a44a4a5f"
+            },
+            data: formData,
+            contentType: false,
+            processData: false,
+            success: function(response) {
+                if (response.success && response.data.link) {
+                    const imageUrl = response.data.link;
+                    $.ajax({
+                        url: "https://script.google.com/macros/s/AKfycbw6YzeqV8b5ACr5gkXPz4OL7Xh9MO9-TdVUBp6HQQ1ClU8CrsS6qgrhkXv_8svm9dUd/exec",
+                        type: "POST",
+                        data: {
+                            action: "processAdd",
+                            mobile: mobileNumber,
+                            amount: addAmount,
+                            screenshot: imageUrl
+                        },
+                        success: function(response) {
+                            if (response === "Success") {
+                                alert('Funds added successfully!');
+                                $('#addFormStep2').fadeOut();
+                                $('#mainContent').show();
+                                $('.games').show();
+                                userDetails += addAmount;
+                                $('#userDetails').text(`₹${userDetails.toFixed(2)}`);
+                                clearAddForm();
+                            } else {
+                                alert('Details Successfully Send Aftersometime Balance Will Add.');
+                            }
+                            location.reload();
+                        },
+                        error: function(error) {
+                            alert('Error processing the add request.');
+                        }
+                    });
+                } else {
+                    $('#imageError').text('Failed to upload the screenshot to Imgur.');
+                }
+            },
+            error: function(error) {
+                $('#imageError').text('Error uploading image to Imgur.');
+            }
+        });
+    });
+});
+</script>

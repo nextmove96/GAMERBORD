@@ -1,0 +1,57 @@
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Raleway:ital,wght@0,100..900;1,100..900&display=swap');
+    * { padding: 0; margin: 0; font-family: "Raleway", serif; }
+    h2 { font-weight: 400; }
+    #loginForm { display: flex; justify-content: center; flex-direction: column; align-items: start; margin: 10px; border: 1px solid #919191;padding: 10px; }
+    input { width: 90%; border: 1px solid #6f6f6f; padding: 4px; outline: none; margin: 10px 0px 0px 10px; }
+    button { background: #000; padding: 4px; color: #fff; margin: 10px; width: 100px; font-family: "Raleway", serif; }
+    .header { text-align: center; border-bottom: 1px solid #878787; padding: 10px }
+    a { text-decoration: none; }
+</style>
+<div class="header">
+    <img src="https://i.ibb.co/yQSDRbp/GAMERBORD.png">
+</div>
+<form id="loginForm">
+    <h2>Login</h2>
+    <input type="tel" id="mobile" name="mobile" required placeholder="Mobile Number:">
+    <input type="password" id="password" name="password" required placeholder="Password:">
+    <button type="submit">Login</button>
+    <p>Don't Have Account <a href="signup.html">Click Here</a></p>
+</form>
+
+<script>
+    if (localStorage.getItem('m_local')) {
+        window.location.href = 'index.html';
+    }
+
+    $('#loginForm').submit(function(event) {
+        event.preventDefault();
+        var mobile = $('#mobile').val();
+        var password = $('#password').val();
+
+        $.ajax({
+            url: "https://script.google.com/macros/s/AKfycbzTIMNM8RDBGZmAC5qKX1AJkaimZY4_wVqrbf5Dx1Q6aQjhZs30Q8GBtJ7s_qCunr4k/exec",
+            type: "GET",
+            data: {
+                action: "login",
+                mobile: mobile,
+                password: password
+            },
+            success: function(response) {
+                if (response === "Login Successful") {
+                    localStorage.setItem('m_local', mobile);
+                    alert('Login successful!');
+                    window.location.href = 'index.html';
+                } else {
+                    alert('Invalid mobile number or password.');
+                }
+            },
+            error: function(error) {
+                alert('Error during login!');
+            }
+        });
+    });
+</script>
